@@ -1,12 +1,11 @@
 {
     "author": "David P. Janes <davidjanes@iotdb.org> (https://iotdb.org)", 
-    "bin": {
-    }, 
+    "bin": {}, 
     "bugs": {
         "url": "https://github.com/dpjanes/iotdb-upnp/issues"
     }, 
     "dependencies": {
-        "homestar": "~0.4.0", 
+        "iotdb": ">=0.4.16", 
         "xml2js": "~0.4.5"
     }, 
     "description": "UPnP controller - standalone or with HomeStar / IOTDB", 
@@ -26,6 +25,7 @@
         "IOTDB", 
         "IOT", 
         "HomeStar", 
+        "Universal Plug & Play", 
         "UPnP"
     ], 
     "license": "Apache-2.0", 
@@ -33,10 +33,10 @@
     "name": "iotdb-upnp", 
     "repository": {
         "type": "git", 
-        "url": "https://github.com/dpjanes/iotdb-homestar"
+        "url": "https://github.com/dpjanes/iotdb-upnp"
     }, 
     "scripts": {
         "test": "grunt"
     }, 
-    "version": "0.0.0"
+    "version": "0.0.1"
 }

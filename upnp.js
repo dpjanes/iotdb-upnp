@@ -24,18 +24,7 @@
 
 "use strict";
 
-/* you must have homestar or iotdb installed */
-var iotdb;
-if (!_) {
-    try {
-        iotdb = require("homestar").iotdb;
-    } catch (x) {
-    }
-}
-if (!_) {
-    iotdb = require("iotdb");
-}
-
+var iotdb = require("iotdb");
 var _ = iotdb._;
 var bunyan = iotdb.bunyan;
 var logger = bunyan.createLogger({
