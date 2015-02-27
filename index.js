@@ -24,6 +24,8 @@
 
 "use strict";
 
+exports.iotdb_module = true;
+
 var upnp = require('./upnp')
 for (var xi in upnp) {
     exports[xi] = upnp[xi];
