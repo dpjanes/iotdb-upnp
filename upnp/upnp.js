@@ -1,17 +1,6 @@
 "use strict"
 
-/* you must have homestar or iotdb installed */
-var iotdb;
-if (!_) {
-    try {
-        iotdb = require("homestar").iotdb;
-    } catch (x) {
-    }
-}
-if (!_) {
-    iotdb = require("iotdb");
-}
-
+var iotdb = require("iotdb");
 var _ = iotdb._;
 var bunyan = iotdb.bunyan;
 
@@ -20,17 +9,13 @@ var http = require("http");
 var dgram = require("dgram");
 var util = require("util");
 var events = require("events");
+var http_parser = require('http-string-parser');
 
 var logger = bunyan.createLogger({
     name: 'iotdb',
     module: 'upnp/upnp',
 });
 
-// HTTP parser
-var HTTP_PARSER_REQUEST = process.binding('http_parser').HTTPParser.REQUEST;
-var HTTP_PARSER_RESPONSE = process.binding('http_parser').HTTPParser.RESPONSE;
-
-// SSDP
 var SSDP_PORT = 1900;
 var BROADCAST_ADDR = "239.255.255.250";
 var SSDP_MSEARCH = "M-SEARCH * HTTP/1.1\r\nHost:" + BROADCAST_ADDR + ":" + SSDP_PORT + "\r\nST:%st\r\nMan:\"ssdp:discover\"\r\nMX:3\r\n\r\n";
@@ -45,6 +30,15 @@ var UPNP_NTS_EVENTS = {
     'ssdp:byebye': 'DeviceUnavailable',
     'ssdp:update': 'DeviceUpdate'
 };
+
+var _lowerd = function(ind) {
+    var outd = {};
+    for (var key in ind) {
+        outd[key.toLowerCase()] = ind[key];
+    }
+
+    return outd;
+}
 
 var debug;
 if (process.env.NODE_DEBUG && /upnp/.test(process.env.NODE_DEBUG)) {
@@ -67,7 +61,6 @@ function ControlPoint() {
     this.server.on('message', function (msg, rinfo) {
         self.onRequestMessage(msg, rinfo);
     });
-    this._initParsers();
     this.server.bind(SSDP_PORT, function () {
         this.server.addMembership(BROADCAST_ADDR); //fixed issue #2
     }.bind(this));
@@ -79,18 +72,18 @@ exports.ControlPoint = ControlPoint;
  * Message handler for HTTPU request.
  */
 ControlPoint.prototype.onRequestMessage = function (msg, rinfo) {
-    var ret = this.requestParser.execute(msg, 0, msg.length);
-    if (!(ret instanceof Error)) {
-        var req = this.requestParser.incoming;
-        switch (req.method) {
-        case 'NOTIFY':
-            debug('NOTIFY ' + req.headers.nts + ' NT=' + req.headers.nt + ' USN=' + req.headers.usn);
-            var event = UPNP_NTS_EVENTS[req.headers.nts];
-            if (event) {
-                this.emit(event, req.headers);
-            }
-            break;
-        };
+    var parsed = http_parser.parseRequest(msg.toString())
+    if (!parsed) {
+        return;
+    } else if (parsed.method !== "NOTIFY") {
+        return;
+    }
+
+    parsed.headers = _lowerd(parsed.headers);
+
+    var event = UPNP_NTS_EVENTS[parsed.headers.nts];
+    if (event) {
+        this.emit(event, parsed.headers);
     }
 };
 
@@ -107,57 +100,26 @@ ControlPoint.prototype.injectDeviceFound = function (headerd) {
  * Message handler for HTTPU response.
  */
 ControlPoint.prototype.onResponseMessage = function (msg, rinfo) {
-    this.responseParser.reinitialize(HTTP_PARSER_RESPONSE);
-
-    var r = this.responseParser.execute(msg, 0, msg.length);
-    if (r instanceof Error) {
-        logger.error({
-            method: "ControlPoint.onResponseMessage",
-            cause: "probably UPnP protocol stuff",
-            error: r,
-        }, "error from this.responseParser.execute");
+    var parsed = http_parser.parseResponse(msg.toString())
+    if (!parsed) {
         return;
-    }
-
-    var incoming = this.responseParser.incoming;
-    if (incoming.statusCode !== 200) {
+    } else if (parsed.statusCode !== "200") {
         logger.error({
             method: "ControlPoint.onResponseMessage",
             cause: "probably UPnP protocol stuff",
-            statusCode: incoming.statusCode,
+            statusCode: parsed.statusCode,
         }, "response code was not 200");
     }
 
+    parsed.headers = _lowerd(parsed.headers);
+
     logger.debug({
         method: "ControlPoint.onResponseMessage",
-        headerd: incoming.headers,
+        headerd: parsed.headers,
     }, "device was found");
 
-    this.injectDeviceFound(incoming.headers);
+    this.injectDeviceFound(parsed.headers);
 }
-
-/**
- * Initialize HTTPU response and request parsers.
- */
-ControlPoint.prototype._initParsers = function () {
-    var self = this;
-    if (!self.requestParser) {
-        self.requestParser = http.parsers.alloc();
-        self.requestParser.reinitialize(HTTP_PARSER_REQUEST);
-        self.requestParser.onIncoming = function (req) {
-
-        };
-        self.requestParser.socket = {}; //fix for issue #3
-    }
-    if (!self.responseParser) {
-        self.responseParser = http.parsers.alloc();
-        self.responseParser.reinitialize(HTTP_PARSER_RESPONSE);
-        self.responseParser.onIncoming = function (res) {
-
-        };
-        self.responseParser.socket = {}; // fix: http expecting socket
-    }
-};
 
 /**
  * Send an SSDP search request.
@@ -206,8 +168,6 @@ ControlPoint.prototype.search = function (st) {
  */
 ControlPoint.prototype.close = function () {
     this.server.close();
-    http.parsers.free(this.requestParser);
-    http.parsers.free(this.responseParser);
 }
 
 /* TODO Move these stuff to a separated module/project */

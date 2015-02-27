@@ -5,7 +5,8 @@
         "url": "https://github.com/dpjanes/iotdb-upnp/issues"
     }, 
     "dependencies": {
-        "iotdb": ">=0.4.16", 
+        "http-string-parser": "~0.0.4", 
+        "iotdb": ">=0.5.2", 
         "xml2js": "~0.4.5"
     }, 
     "description": "UPnP controller - standalone or with HomeStar / IOTDB", 
@@ -38,5 +39,5 @@
     "scripts": {
         "test": "grunt"
     }, 
-    "version": "0.0.1"
+    "version": "0.0.4"
 }

@@ -30,9 +30,3 @@ var upnp = require('./upnp')
 for (var xi in upnp) {
     exports[xi] = upnp[xi];
 }
-
-exports.setup = function(iotdb) {
-    iotdb.iot = function() {
-        return upnp;
-    };
-};
