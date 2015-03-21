@@ -40,23 +40,37 @@ var _lowerd = function(ind) {
     return outd;
 }
 
-var debug;
-if (process.env.NODE_DEBUG && /upnp/.test(process.env.NODE_DEBUG)) {
-    debug = function (x) {
-        console.error('UPNP: %s', x);
-    };
-
-} else {
-    debug = function () {};
-}
-
 function ControlPoint() {
     var self = this
 
     events.EventEmitter.call(this);
+    /*
     this.server = dgram.createSocket('udp4', function () {
         // console.log("- UPnP:ControlPoint/createSocket", arguments)
     });
+    */
+    /* DPJ 2015-03-21: reuse addresses to stop UPnP conflicts */
+    try {
+        this.server = dgram.createSocket({
+            type: 'udp4', 
+            reuseAddr: true,
+        }, function () {
+            // console.log("- UPnP:ControlPoint/createSocket", arguments)
+        });
+    } catch (x) {
+        if (x.message.match(/Bad socket type specified/)) {
+            logger.error({
+                method: "ControlPoint",
+                cause: "old version of Node.JS - upgrade to 0.12 or higher",
+                error: x.message
+            }, "switching to backward compatibility");
+            
+            this.server = dgram.createSocket('udp4', function () {
+            });
+        } else {
+            throw(x);
+        }
+    }
 
     this.server.on('message', function (msg, rinfo) {
         self.onRequestMessage(msg, rinfo);
@@ -144,18 +158,17 @@ ControlPoint.prototype.search = function (st) {
     client.bind(); // So that we get a port so we can listen before sending
 
     // Broadcast request
-    // console.log("- UPnP:ControlPoint.search", "sending", message)
     client.send(message, 0, message.length, SSDP_PORT, BROADCAST_ADDR, function (err, bytes) {
         if (err) {
-            console.log("# UPnP:ControlPoint.search/client.send", "err", err)
-            logger.info({
+            logger.errro({
                 method: "UPnP:ControlPoint.search/client.send",
-            }, "");
+                error: err,
+                cause: "network issue - likely will fix itself",
+            }, "error sending broadcast request");
         } else {
             // console.log("- UPnP:ControlPoint.search/client.send", "bytes sent", bytes)
         }
     });
-    debug('REQUEST SEARCH ' + st);
 
     // MX is set to 3, wait for 1 additional sec. before closing the client
     setTimeout(function () {

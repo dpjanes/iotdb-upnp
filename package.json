@@ -6,8 +6,7 @@
     }, 
     "dependencies": {
         "http-string-parser": "~0.0.4", 
-        "iotdb": ">=0.5.2", 
-        "xml2js": "~0.4.5"
+        "xml2js": "~0.4.6"
     }, 
     "description": "UPnP controller - standalone or with HomeStar / IOTDB", 
     "devDependencies": {
@@ -32,6 +31,9 @@
     "license": "Apache-2.0", 
     "main": "index.js", 
     "name": "iotdb-upnp", 
+    "peerDependencies": {
+        "iotdb": ">=0.5.5"
+    }, 
     "repository": {
         "type": "git", 
         "url": "https://github.com/dpjanes/iotdb-upnp"
@@ -39,5 +41,5 @@
     "scripts": {
         "test": "grunt"
     }, 
-    "version": "0.0.4"
+    "version": "0.0.6"
 }
