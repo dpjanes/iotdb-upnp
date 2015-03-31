@@ -7,6 +7,7 @@ var bunyan = iotdb.bunyan;
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 var http = require("http");
+var https = require("https");
 var url = require("url");
 var xml2js = require('xml2js');
 
@@ -267,8 +268,14 @@ UpnpControlPoint.prototype._getDeviceDetails = function (udn, location, callback
             location: location
         }, "getting device details");
     }
+
+    var requester = null;
     var options = url.parse(location);
-    if (options.protocol !== "http:") {
+    if (options.protocol === "http:") {
+        requester = http.request;
+    } else if (options.protocol === "https:") {
+        requester = https.request;
+    } else {
         logger.error({
             method: "UpnpControlPoint._getDeviceDetails",
             location: location,
@@ -277,7 +284,7 @@ UpnpControlPoint.prototype._getDeviceDetails = function (udn, location, callback
         return;
     }
 
-    var req = http.request(options, function (res) {
+    var req = requester(options, function (res) {
         //res.setEncoding('utf8');
         var resData = "";
         res.on('data', function (chunk) {

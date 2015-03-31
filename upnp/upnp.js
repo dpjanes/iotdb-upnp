@@ -160,7 +160,7 @@ ControlPoint.prototype.search = function (st) {
     // Broadcast request
     client.send(message, 0, message.length, SSDP_PORT, BROADCAST_ADDR, function (err, bytes) {
         if (err) {
-            logger.errro({
+            logger.error({
                 method: "UPnP:ControlPoint.search/client.send",
                 error: err,
                 cause: "network issue - likely will fix itself",
