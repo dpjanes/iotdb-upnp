@@ -31,7 +31,7 @@ var UPNP_NTS_EVENTS = {
     'ssdp:update': 'DeviceUpdate'
 };
 
-var _lowerd = function(ind) {
+var _lowerd = function (ind) {
     var outd = {};
     for (var key in ind) {
         outd[key.toLowerCase()] = ind[key];
@@ -52,7 +52,7 @@ function ControlPoint() {
     /* DPJ 2015-03-21: reuse addresses to stop UPnP conflicts */
     try {
         this.server = dgram.createSocket({
-            type: 'udp4', 
+            type: 'udp4',
             reuseAddr: true,
         }, function () {
             // console.log("- UPnP:ControlPoint/createSocket", arguments)
@@ -64,11 +64,10 @@ function ControlPoint() {
                 cause: "old version of Node.JS - upgrade to 0.12 or higher",
                 error: x.message
             }, "switching to backward compatibility");
-            
-            this.server = dgram.createSocket('udp4', function () {
-            });
+
+            this.server = dgram.createSocket('udp4', function () {});
         } else {
-            throw(x);
+            throw (x);
         }
     }
 

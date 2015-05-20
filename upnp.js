@@ -58,7 +58,7 @@ var control_point = function () {
 
 var initialized = function () {
     return _cp !== undefined;
-}
+};
 
 var devices = function () {
     var ds = [];
@@ -66,10 +66,10 @@ var devices = function () {
     var cp = control_point();
     for (var dkey in cp.devices) {
         var device = cp.devices[dkey];
-        if (_.isObject(device)) {
+        if (_.is.Object(device)) {
             ds.push(device);
         }
-    };
+    }
 
     return ds;
 };
