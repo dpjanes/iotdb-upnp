@@ -182,18 +182,20 @@ UpnpDevice.prototype._handleDeviceInfo = function (desc) {
 
     if (desc.serviceList) {
         var serviceList = desc.serviceList[0].service;
-        for (var i = 0; i < serviceList.length; i++) {
-            var serviceDesc = serviceList[i];
-            // var s = {
-            // serviceType : serviceDesc.serviceType[0],
-            // serviceId   : serviceDesc.serviceId[0],
-            // controlUrl  : serviceDesc.controlURL[0],
-            // eventSubUrl  : serviceDesc.eventSubURL[0],
-            // scpdUrl  : serviceDesc.SCPDURL[0]
-            // };
-            var service = new UpnpService(this, serviceDesc);
-            this.services[service.serviceId] = service;
-            this.emit("service", service); // notify listeners of service
+        if (serviceList && serviceList.length) {
+            for (var i = 0; i < serviceList.length; i++) {
+                var serviceDesc = serviceList[i];
+                // var s = {
+                // serviceType : serviceDesc.serviceType[0],
+                // serviceId   : serviceDesc.serviceId[0],
+                // controlUrl  : serviceDesc.controlURL[0],
+                // eventSubUrl  : serviceDesc.eventSubURL[0],
+                // scpdUrl  : serviceDesc.SCPDURL[0]
+                // };
+                var service = new UpnpService(this, serviceDesc);
+                this.services[service.serviceId] = service;
+                this.emit("service", service); // notify listeners of service
+            }
         }
     }
 }
