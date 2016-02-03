@@ -2,7 +2,6 @@
 
 var iotdb = require("iotdb");
 var _ = iotdb._;
-var bunyan = iotdb.bunyan;
 
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
@@ -14,7 +13,7 @@ var xml2js = require('xml2js');
 var upnp = require("./upnp");
 var UpnpDevice = require("./upnp-device").UpnpDevice;
 
-var logger = bunyan.createLogger({
+var logger = iotdb.logger({
     name: 'iotdb-upnp',
     module: 'upnp/upnp-controlpoint',
 });
