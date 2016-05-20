@@ -184,16 +184,13 @@ UpnpDevice.prototype._handleDeviceInfo = function (desc) {
         if (serviceList && serviceList.length) {
             for (var i = 0; i < serviceList.length; i++) {
                 var serviceDesc = serviceList[i];
-                // var s = {
-                // serviceType : serviceDesc.serviceType[0],
-                // serviceId   : serviceDesc.serviceId[0],
-                // controlUrl  : serviceDesc.controlURL[0],
-                // eventSubUrl  : serviceDesc.eventSubURL[0],
-                // scpdUrl  : serviceDesc.SCPDURL[0]
-                // };
                 var service = new UpnpService(this, serviceDesc);
+                if (!service.ok) {
+                    continue;
+                }
+
                 this.services[service.serviceId] = service;
-                this.emit("service", service); // notify listeners of service
+                this.emit("service", service); 
             }
         }
     }

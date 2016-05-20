@@ -29,32 +29,47 @@ var UpnpService = function (device, desc) {
     EventEmitter.call(this);
 
     if (TRACE && DETAIL) {
-        console.log("- UPnP:UpnpService", "creating service object", JSON.stringify(desc));
         logger.info({
-            method: "UpnpService"
-        }, "");
+            method: "UpnpService",
+            device: device,
+            desc: desc,
+        }, "called");
     }
 
     this.device = device;
 
+    this.ok = true;
     this.forgotten = false
-    this.serviceType = desc.serviceType[0];
-    this.serviceId = desc.serviceId[0];
-    this.controlUrl = desc.controlURL[0];
-    this.eventSubUrl = desc.eventSubURL[0];
-    this.scpdUrl = desc.SCPDURL[0];
 
-    // actions that can be performed on this service
-    this.actions = {};
+    try {
+        this.serviceType = desc.serviceType[0];
+        this.serviceId = desc.serviceId[0];
+        this.controlUrl = desc.controlURL[0];
+        this.eventSubUrl = desc.eventSubURL[0];
+        this.scpdUrl = desc.SCPDURL[0];
 
-    // variables that represent state on this service.
-    this.stateVariables = {};
+        // actions that can be performed on this service
+        this.actions = {};
 
-    var u = url.parse(device.location);
-    this.host = u.hostname;
-    this.port = u.port;
+        // variables that represent state on this service.
+        this.stateVariables = {};
 
-    this.subscriptionTimeout = 30; // 60;
+        var u = url.parse(device.location);
+        this.host = u.hostname;
+        this.port = u.port;
+
+        this.subscriptionTimeout = 30; // 60;
+    } catch (x) {
+        logger.error({
+            method: "UpnpService",
+            cause: "maybe a bad UPnP response - we'll ignore this device",
+            exception: x,
+            device: device,
+            desc: desc,
+        }, "unexpected exception");
+        this.ok = false;
+        return;
+    }
 }
 
 util.inherits(UpnpService, EventEmitter);
