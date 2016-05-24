@@ -24,26 +24,33 @@
 
 "use strict";
 
-var iotdb = require("iotdb");
-var _ = iotdb._;
-var logger = iotdb.logger({
+const iotdb = require("iotdb");
+const _ = iotdb._;
+const logger = iotdb.logger({
     name: 'iotdb-upnp',
     module: 'upnp',
 });
 
-var DELTA_SCRUB = 60 * 1000;
-var DELTA_SEARCH = 20 * 1000;
+const DELTA_SCRUB = 60 * 1000;
+const DELTA_SEARCH = 20 * 1000;
 
-var UpnpControlPoint = require("./upnp/upnp-controlpoint").UpnpControlPoint;
+const UpnpControlPoint = require("./upnp/upnp-controlpoint").UpnpControlPoint;
 
 var _cp;
-var control_point = function () {
+const control_point = function () {
     if (_cp === undefined) {
         logger.info({
             method: "cp"
         }, "made UpnpControlPoint");
 
-        _cp = new UpnpControlPoint();
+        const initd = _.d.compose.shallow({},
+            iotdb.keystore().get("bridges/UPnP/initd"), 
+            {
+                listen_port: 0,
+            }
+        );
+
+        _cp = new UpnpControlPoint(initd);
 
         // we periodically kick off a new search to find devices that have come online
         setInterval(function () {
@@ -55,11 +62,11 @@ var control_point = function () {
     return _cp;
 };
 
-var initialized = function () {
+const initialized = function () {
     return _cp !== undefined;
 };
 
-var devices = function () {
+const devices = function () {
     var ds = [];
 
     var cp = control_point();

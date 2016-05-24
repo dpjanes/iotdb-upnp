@@ -21,10 +21,14 @@ var logger = iotdb.logger({
 var TRACE = false;
 var DETAIL = false;
 
-var UpnpControlPoint = function () {
+var UpnpControlPoint = function (initd) {
     EventEmitter.call(this);
 
     var self = this;
+
+    initd = _.d.compose.shallow(initd, {
+        listen_port: 0,
+    });
 
     this.devices = {}; // a map of udn to device object
 
@@ -175,7 +179,9 @@ var UpnpControlPoint = function () {
     });
 
     // for handling incoming events from subscribed services
-    this.eventHandler = new EventHandler();
+    this.eventHandler = new EventHandler({
+        listen_port: initd.listen_port,
+    });
 }
 
 util.inherits(UpnpControlPoint, EventEmitter);
@@ -371,7 +377,7 @@ UpnpControlPoint.prototype._getDeviceDetails = function (udn, location, callback
 
 
 
-var EventHandler = function () {
+var EventHandler = function (initd) {
     var self = this;
 
     /*
@@ -388,8 +394,13 @@ var EventHandler = function () {
         self._serviceCallbackHandler(req, res);
     });
 
-    this.server.listen(0);
+    this.server.listen(initd.listen_port || 0);
     this.serverPort = this.server.address().port;
+
+    logger.info({
+        method: "EventHandler",
+        port: this.serverPort,
+    }, "UPnP listening on this port");
 
     this.subscriptions = {};
 }
