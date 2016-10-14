@@ -62,7 +62,7 @@ const UpnpControlPoint = function (initd) {
 			MUST be replaced with hyphens in accordance with RFC 2141. 
 	 */
     self.ssdp.on("DeviceFound", function (device) {
-        if (self.seen(device)) {
+        if (self._seen(device)) {
             return;
         }
 
@@ -75,14 +75,6 @@ const UpnpControlPoint = function (initd) {
             }, "device found");
         }
 
-        const o_device = self.devices[udn]
-        if (o_device) {
-            if (o_device.seen) {
-                o_device.seen()
-            }
-            return;
-        }
-
         self.devices[udn] = "holding";
 
         self._getDeviceDetails(udn, device.location, function (device) {
@@ -92,6 +84,10 @@ const UpnpControlPoint = function (initd) {
     });
 
     self.ssdp.on("DeviceAvailable", function (device) {
+        if (self._seen(device)) {
+            return;
+        }
+
         if (!device.location) {
             logger.error({
                 method: "UpnpControlPoint/on(DeviceAvailable)",
@@ -100,15 +96,8 @@ const UpnpControlPoint = function (initd) {
             }, "no device.location?");
             return;
         }
-        const udn = _device_uuid(device);
 
-        const o_device = self.devices[udn]
-        if (o_device) {
-            if (o_device.seen) {
-                o_device.seen()
-            }
-            return;
-        }
+        const udn = _device_uuid(device);
 
         if (TRACE) {
             logger.debug({
@@ -128,41 +117,10 @@ const UpnpControlPoint = function (initd) {
 
     self.ssdp.on("DeviceUnavailable", function (device) {
         self.forget(device);
-        /*
-        const udn = _device_uuid(device);
-
-        if (TRACE) {
-            logger.info({
-                method: "UpnpControlPoint/on(DeviceUnavailable)",
-                device: device
-            }, "");
-        }
-
-        self.emit("device-lost", udn);
-        if (device.emit) {
-            device.emit("device-lost")
-        }
-
-        delete self.devices[udn];
-        */
     });
 
     self.ssdp.on("DeviceUpdate", function (device) {
-        const udn = _device_uuid(device);
-
-        if (TRACE) {
-            logger.info({
-                method: "UpnpControlPoint/on(DeviceUpdate)",
-                device: device
-            }, "");
-        }
-
-        const o_device = self.devices[udn]
-        if (o_device) {
-            if (o_device.seen) {
-                o_device.seen()
-            }
-        }
+        self._seen(device);
     });
 
     // for handling incoming events from subscribed services
@@ -210,7 +168,7 @@ UpnpControlPoint.prototype.forget = function (device) {
     device.forget()
 }
 
-UpnpControlPoint.prototype.seen = function (device) {
+UpnpControlPoint.prototype._seen = function (device) {
     const self = this;
 
     if (!device) {
@@ -243,6 +201,7 @@ UpnpControlPoint.prototype.scrub = function (ms) {
 
     _.values(self.devices)
         .filter(device => device)
+        .filter(device => device.usn)
         .filter(device => (now - device.last_seen) > ms)
         .forEach(device => {
             logger.debug({
@@ -261,16 +220,6 @@ UpnpControlPoint.prototype.search = function (s) {
     const self = this;
 
     self.ssdp.search(s || 'upnp:rootdevice');
-    
-    /*
-    if (s) {
-        //ssdp.search('urn:schemas-upnp-org:device:InternetGatewayDevice:1');
-        //ssdp.search('ssdp:all');
-        this.ssdp.search(s);
-    } else {
-        this.ssdp.search('upnp:rootdevice');
-    }
-    */
 }
 
 /**
