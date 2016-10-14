@@ -1,38 +1,41 @@
 "use strict"
 
-var iotdb = require("iotdb");
-var _ = iotdb._;
+const iotdb = require("iotdb");
+const _ = iotdb._;
 
-var util = require('util');
-var EventEmitter = require('events').EventEmitter;
-var http = require("http");
-var https = require("https");
-var url = require("url");
-var xml2js = require('xml2js');
+const util = require('util');
+const EventEmitter = require('events').EventEmitter;
+const http = require("http");
+const https = require("https");
+const url = require("url");
+const xml2js = require('xml2js');
 
-var upnp = require("./upnp");
-var UpnpDevice = require("./upnp-device").UpnpDevice;
+const upnp = require("./upnp");
+const UpnpDevice = require("./upnp-device").UpnpDevice;
 
-var logger = iotdb.logger({
+const logger = iotdb.logger({
     name: 'iotdb-upnp',
     module: 'upnp/upnp-controlpoint',
 });
 
-var TRACE = false;
-var DETAIL = false;
+const TRACE = false;
+const DETAIL = false;
 
-var UpnpControlPoint = function (initd) {
-    EventEmitter.call(this);
+const _device_uuid = device => device.usn.replace(/::.*$/, '').replace(/^uuid:/, '')
 
-    var self = this;
+const UpnpControlPoint = function (initd) {
+    const self = this;
+
+    EventEmitter.call(self);
+
 
     initd = _.d.compose.shallow(initd, {
         listen_port: 0,
     });
 
-    this.devices = {}; // a map of udn to device object
+    self.devices = {}; // a map of udn to device object
 
-    this.ssdp = new upnp.ControlPoint(); // create a client instance
+    self.ssdp = new upnp.ControlPoint(); // create a client instance
 
     /**
 	 * Device found
@@ -58,8 +61,12 @@ var UpnpControlPoint = function (initd) {
 			UPnP vendor, and ver specifies the version of the service type. Period characters in the Vendor Domain Name 
 			MUST be replaced with hyphens in accordance with RFC 2141. 
 	 */
-    this.ssdp.on("DeviceFound", function (device) {
-        var udn = getUUID(device.usn);
+    self.ssdp.on("DeviceFound", function (device) {
+        if (self.seen(device)) {
+            return;
+        }
+
+        const udn = _device_uuid(device);
 
         if (TRACE) {
             logger.debug({
@@ -68,20 +75,12 @@ var UpnpControlPoint = function (initd) {
             }, "device found");
         }
 
-        // DPJ 
-        var o_device = self.devices[udn]
+        const o_device = self.devices[udn]
         if (o_device) {
             if (o_device.seen) {
                 o_device.seen()
             }
             return;
-        }
-
-        if (TRACE) {
-            logger.debug({
-                method: "UpnpControlPoint/on(DeviceFound)",
-                device: device
-            }, "");
         }
 
         self.devices[udn] = "holding";
@@ -92,10 +91,7 @@ var UpnpControlPoint = function (initd) {
         });
     });
 
-    /**
-     * Device alive
-     */
-    this.ssdp.on("DeviceAvailable", function (device) {
+    self.ssdp.on("DeviceAvailable", function (device) {
         if (!device.location) {
             logger.error({
                 method: "UpnpControlPoint/on(DeviceAvailable)",
@@ -104,10 +100,9 @@ var UpnpControlPoint = function (initd) {
             }, "no device.location?");
             return;
         }
-        var udn = getUUID(device.usn);
+        const udn = _device_uuid(device);
 
-        // DPJ 
-        var o_device = self.devices[udn]
+        const o_device = self.devices[udn]
         if (o_device) {
             if (o_device.seen) {
                 o_device.seen()
@@ -131,11 +126,10 @@ var UpnpControlPoint = function (initd) {
 
     });
 
-    /**
-     * Device left the building
-     */
-    this.ssdp.on("DeviceUnavailable", function (device) {
-        var udn = getUUID(device.usn);
+    self.ssdp.on("DeviceUnavailable", function (device) {
+        self.forget(device);
+        /*
+        const udn = _device_uuid(device);
 
         if (TRACE) {
             logger.info({
@@ -150,13 +144,11 @@ var UpnpControlPoint = function (initd) {
         }
 
         delete self.devices[udn];
+        */
     });
 
-    /**
-     * Device has been updated
-     */
-    this.ssdp.on("DeviceUpdate", function (device) {
-        var udn = getUUID(device.usn);
+    self.ssdp.on("DeviceUpdate", function (device) {
+        const udn = _device_uuid(device);
 
         if (TRACE) {
             logger.info({
@@ -165,21 +157,16 @@ var UpnpControlPoint = function (initd) {
             }, "");
         }
 
-        // DPJ 
-        var o_device = self.devices[udn]
+        const o_device = self.devices[udn]
         if (o_device) {
             if (o_device.seen) {
                 o_device.seen()
             }
         }
-
-        //self.devices[udn] = device;
-
-        // TODO update device object
     });
 
     // for handling incoming events from subscribed services
-    this.eventHandler = new EventHandler({
+    self.eventHandler = new EventHandler({
         listen_port: initd.listen_port,
     });
 }
@@ -195,9 +182,13 @@ util.inherits(UpnpControlPoint, EventEmitter);
  *  DPJ 2014-07-22
  */
 UpnpControlPoint.prototype.forget = function (device) {
-    var self = this
+    const self = this
 
-    var udn = device.udn.replace(/^uuid:/, '')
+    if (!device) {
+        return;
+    }
+
+    const udn = _device_uuid(device);
     if (!self.devices[udn]) {
         logger.debug({
             method: "UpnpControlPoint.forget",
@@ -205,7 +196,7 @@ UpnpControlPoint.prototype.forget = function (device) {
             devices: _.keys(self.devices),
             cause: "UPnP protocol - not a big deal",
         }, "device not known!");
-        return
+        return;
     }
 
     logger.info({
@@ -219,37 +210,59 @@ UpnpControlPoint.prototype.forget = function (device) {
     device.forget()
 }
 
+UpnpControlPoint.prototype.seen = function (device) {
+    const self = this;
+
+    if (!device) {
+        return;
+    }
+
+    const udn = _device_uuid(device);
+    const o_device = self.devices[udn];
+    if (!o_device) {
+        return;
+    }
+
+    if (!o_device.seen) {
+        return;
+    }
+
+    o_device.seen();
+    return true;
+}
+
 /**
  *  Forget all devices older than the given time in ms
  *
  *  DPJ 2014-07-22
  */
 UpnpControlPoint.prototype.scrub = function (ms) {
-    var self = this
+    const self = this
 
-    var now = (new Date()).getTime();
-    var forgets = []
-    for (var di in self.devices) {
-        var device = self.devices[di]
-        var delta = now - device.last_seen
-        if (delta > ms) {
+    const now = (new Date()).getTime();
+
+    _.values(self.devices)
+        .filter(device => device)
+        .filter(device => (now - device.last_seen) > ms)
+        .forEach(device => {
             logger.debug({
                 method: "UpnpControlPoint.scrub",
-                age: delta,
+                age: now - device.last_seen,
                 udn: device.udn,
             }, "will forget device - haven't seen it in a while");
-            forgets.push(device)
-        }
-    }
 
-    for (var di in forgets) {
-        self.forget(forgets[di])
-    }
+            self.forget(device);
+        })
 }
 
 /**
  */
 UpnpControlPoint.prototype.search = function (s) {
+    const self = this;
+
+    self.ssdp.search(s || 'upnp:rootdevice');
+    
+    /*
     if (s) {
         //ssdp.search('urn:schemas-upnp-org:device:InternetGatewayDevice:1');
         //ssdp.search('ssdp:all');
@@ -257,6 +270,7 @@ UpnpControlPoint.prototype.search = function (s) {
     } else {
         this.ssdp.search('upnp:rootdevice');
     }
+    */
 }
 
 /**
@@ -265,7 +279,7 @@ UpnpControlPoint.prototype.search = function (s) {
  * @param {Object} deviceUrl
  */
 UpnpControlPoint.prototype._getDeviceDetails = function (udn, location, callback) {
-    var self = this;
+    const self = this;
     var localAddress = "127.0.0.1"; // will determine which local address is used to talk with the device.
     if (TRACE) {
         logger.info({
@@ -377,8 +391,8 @@ UpnpControlPoint.prototype._getDeviceDetails = function (udn, location, callback
 
 
 
-var EventHandler = function (initd) {
-    var self = this;
+const EventHandler = function (initd) {
+    const self = this;
 
     /*
     this.serverPort = 6767;
@@ -389,20 +403,20 @@ var EventHandler = function (initd) {
 
     this.server.listen(this.serverPort);
     */
-    this.responseCount = 1; // not sure if this is supposed to be per-subscription
-    this.server = http.createServer(function (req, res) {
+    self.responseCount = 1; // not sure if this is supposed to be per-subscription
+    self.server = http.createServer(function (req, res) {
         self._serviceCallbackHandler(req, res);
     });
 
-    this.server.listen(initd.listen_port || 0);
-    this.serverPort = this.server.address().port;
+    self.server.listen(initd.listen_port || 0);
+    self.serverPort = self.server.address().port;
 
     logger.info({
         method: "EventHandler",
-        port: this.serverPort,
+        port: self.serverPort,
     }, "UPnP listening on this port");
 
-    this.subscriptions = {};
+    self.subscriptions = {};
 }
 
 EventHandler.prototype.addSubscription = function (subscription) {
@@ -420,7 +434,7 @@ EventHandler.prototype.removeSubscription = function (sid) {
  * @param {Object} res
  */
 EventHandler.prototype._serviceCallbackHandler = function (req, res) {
-    var self = this;
+    const self = this;
     var reqContent = "";
     req.on("data", function (buf) {
         reqContent += buf;
@@ -477,28 +491,7 @@ EventHandler.prototype._serviceCallbackHandler = function (req, res) {
     });
 }
 
+/**
+ *  API
+ */
 exports.UpnpControlPoint = UpnpControlPoint;
-
-
-/* ----------------------------------- utility functions ------------------------------------- */
-
-if (typeof String.prototype.startsWith != 'function') {
-    // see below for better implementation!
-    String.prototype.startsWith = function (str) {
-        return this.indexOf(str) == 0;
-    };
-}
-
-function getUUID(usn) {
-    var udn = usn;
-    var s = usn.split("::");
-    if (s.length > 0) {
-        udn = s[0];
-    }
-
-    if (udn.startsWith("uuid:")) {
-        udn = udn.substring(5);
-    }
-
-    return udn;
-}
