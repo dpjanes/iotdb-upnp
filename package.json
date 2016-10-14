@@ -6,19 +6,19 @@
     }, 
     "dependencies": {
         "http-string-parser": "~0.0.5", 
-        "xml2js": "~0.4.16"
+        "xml2js": "~0.4.17"
     }, 
     "description": "UPnP controller - standalone or with HomeStar / IOTDB", 
     "devDependencies": {
         "grunt": "~1.0.1", 
         "grunt-contrib-jshint": "~1.0.0", 
         "grunt-contrib-nodeunit": "~1.0.0", 
-        "grunt-contrib-uglify": "~1.0.1", 
+        "grunt-contrib-uglify": "~2.0.0", 
         "grunt-contrib-watch": "~1.0.0", 
-        "grunt-jsbeautifier": "~0.2.12", 
-        "jshint-stylish": "~2.2.0", 
-        "load-grunt-tasks": "~3.5.0", 
-        "request": "~2.72.0"
+        "grunt-jsbeautifier": "~0.2.13", 
+        "jshint-stylish": "~2.2.1", 
+        "load-grunt-tasks": "~3.5.2", 
+        "request": "~2.75.0"
     }, 
     "homepage": "https://iotdb.org", 
     "keywords": [
@@ -32,7 +32,7 @@
     "main": "index.js", 
     "name": "iotdb-upnp", 
     "peerDependencies": {
-        "iotdb": ">=0.14.0"
+        "iotdb": ">=3.0.0"
     }, 
     "repository": {
         "type": "git", 
@@ -41,5 +41,5 @@
     "scripts": {
         "test": "grunt"
     }, 
-    "version": "0.0.14"
+    "version": "3.0.1"
 }
