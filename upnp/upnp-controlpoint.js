@@ -21,107 +21,63 @@ const logger = iotdb.logger({
 const TRACE = false;
 const DETAIL = false;
 
-const _device_uuid = device => device.usn.replace(/::.*$/, '').replace(/^uuid:/, '')
+/**
+ * Device found
+
+NT: Notification Type
+    upnp:rootdevice 
+        Sent once for root device. 
+    uuid:device-UUID
+        Sent once for each device, root or embedded, where device-UUID is specified by the UPnP vendor. See 
+        section 1.1.4, “UUID format and RECOMMENDED generation algorithms” for the MANDATORY UUID format. 
+    urn:schemas-upnp-org:device:deviceType:ver
+        Sent once for each device, root or embedded, where deviceType and ver are defined by UPnP Forum working 
+        committee, and ver specifies the version of the device type. 
+    urn:schemas-upnp-org:service:serviceType:ver
+        Sent once for each service where serviceType and ver are defined by UPnP Forum working committee and ver
+        specifies the version of the service type. 
+    urn:domain-name:device:deviceType:ver
+        Sent once for each device, root or embedded, where domain-name is a Vendor Domain Name, deviceType and ver
+        are defined by the UPnP vendor, and ver specifies the version of the device type. Period characters in the Vendor 
+        Domain Name MUST be replaced with hyphens in accordance with RFC 2141. 
+    urn:domain-name:service:serviceType:ver
+        Sent once for each service where domain-name is a Vendor Domain Name, serviceType and ver are defined by 
+        UPnP vendor, and ver specifies the version of the service type. Period characters in the Vendor Domain Name 
+        MUST be replaced with hyphens in accordance with RFC 2141. 
+ */
+
+
+const _device_uuid = device => {
+    if (!device) {
+        return null;
+    } else if (device.uuid) {
+        return device.uuid;
+    } else if (device.usn) {
+        return device.usn.replace(/::.*$/, '').replace(/^uuid:/, '');
+    } else {
+        return null;
+    }
+}
 
 const UpnpControlPoint = function (initd) {
     const self = this;
 
     EventEmitter.call(self);
 
-
     initd = _.d.compose.shallow(initd, {
         listen_port: 0,
     });
 
-    self.devices = {}; // a map of udn to device object
+    self.deviced = {}; 
 
-    self.ssdp = new upnp.ControlPoint(); // create a client instance
+    // create a client instance
+    self.ssdp = new upnp.ControlPoint(); 
 
-    /**
-	 * Device found
-
-	NT: Notification Type
-		upnp:rootdevice 
-			Sent once for root device. 
-		uuid:device-UUID
-			Sent once for each device, root or embedded, where device-UUID is specified by the UPnP vendor. See 
-			section 1.1.4, “UUID format and RECOMMENDED generation algorithms” for the MANDATORY UUID format. 
-		urn:schemas-upnp-org:device:deviceType:ver
-			Sent once for each device, root or embedded, where deviceType and ver are defined by UPnP Forum working 
-			committee, and ver specifies the version of the device type. 
-		urn:schemas-upnp-org:service:serviceType:ver
-			Sent once for each service where serviceType and ver are defined by UPnP Forum working committee and ver
-			specifies the version of the service type. 
-		urn:domain-name:device:deviceType:ver
-			Sent once for each device, root or embedded, where domain-name is a Vendor Domain Name, deviceType and ver
-			are defined by the UPnP vendor, and ver specifies the version of the device type. Period characters in the Vendor 
-			Domain Name MUST be replaced with hyphens in accordance with RFC 2141. 
-		urn:domain-name:service:serviceType:ver
-			Sent once for each service where domain-name is a Vendor Domain Name, serviceType and ver are defined by 
-			UPnP vendor, and ver specifies the version of the service type. Period characters in the Vendor Domain Name 
-			MUST be replaced with hyphens in accordance with RFC 2141. 
-	 */
-    self.ssdp.on("DeviceFound", function (device) {
-        if (self._seen(device)) {
-            return;
-        }
-
-        const udn = _device_uuid(device);
-
-        if (TRACE) {
-            logger.debug({
-                method: "UpnpControlPoint/on(DeviceFound)",
-                udn: udn
-            }, "device found");
-        }
-
-        self.devices[udn] = "holding";
-
-        self._getDeviceDetails(udn, device.location, function (device) {
-            self.devices[udn] = device;
-            self.emit("device", device);
-        });
-    });
-
-    self.ssdp.on("DeviceAvailable", function (device) {
-        if (self._seen(device)) {
-            return;
-        }
-
-        if (!device.location) {
-            logger.error({
-                method: "UpnpControlPoint/on(DeviceAvailable)",
-                device: device,
-                cause: "UPnP error - nothing can be done",
-            }, "no device.location?");
-            return;
-        }
-
-        const udn = _device_uuid(device);
-
-        if (TRACE) {
-            logger.debug({
-                method: "UpnpControlPoint/on(DeviceAvailable)",
-                udn: udn,
-                nt: device.nt,
-            }, "");
-        }
-
-        self.devices[udn] = "holding";
-        self._getDeviceDetails(udn, device.location, function (device) {
-            self.devices[udn] = device;
-            self.emit("device", device);
-        });
-
-    });
-
-    self.ssdp.on("DeviceUnavailable", function (device) {
-        self.forget(device);
-    });
-
-    self.ssdp.on("DeviceUpdate", function (device) {
-        self._seen(device);
-    });
+    // these actually aren't devices but headers that if you squint look like them
+    self.ssdp.on("DeviceFound", device => self._found(device));
+    self.ssdp.on("DeviceAvailable", device => self._found(device));
+    self.ssdp.on("DeviceUnavailable", device => self.forget(device));
+    self.ssdp.on("DeviceUpdate", device => self._seen(device));
 
     // for handling incoming events from subscribed services
     self.eventHandler = new EventHandler({
@@ -147,11 +103,11 @@ UpnpControlPoint.prototype.forget = function (device) {
     }
 
     const udn = _device_uuid(device);
-    if (!self.devices[udn]) {
+    if (!self.deviced[udn]) {
         logger.debug({
             method: "UpnpControlPoint.forget",
-            udn: device.udn,
-            devices: _.keys(self.devices),
+            udn: udn,
+            devices: _.keys(self.deviced),
             cause: "UPnP protocol - not a big deal",
         }, "device not known!");
         return;
@@ -159,13 +115,16 @@ UpnpControlPoint.prototype.forget = function (device) {
 
     logger.info({
         method: "UpnpControlPoint.forget",
-        udn: device.udn,
+        udn: udn,
     }, "forgetting device");
 
-    delete self.devices[udn];
+    delete self.deviced[udn];
 
-    self.emit("device-lost", device.udn);
-    device.forget()
+    self.emit("device-lost", udn);
+
+    if (device.forget) {
+        device.forget()
+    }
 }
 
 UpnpControlPoint.prototype._seen = function (device) {
@@ -176,7 +135,7 @@ UpnpControlPoint.prototype._seen = function (device) {
     }
 
     const udn = _device_uuid(device);
-    const o_device = self.devices[udn];
+    const o_device = self.deviced[udn];
     if (!o_device) {
         return;
     }
@@ -187,7 +146,43 @@ UpnpControlPoint.prototype._seen = function (device) {
 
     o_device.seen();
     return true;
-}
+};
+
+UpnpControlPoint.prototype._found = function (device) {
+    const self = this;
+
+    const udn = _device_uuid(device);
+
+    if (self.deviced[udn] === "holding") {
+        return;
+    }
+
+    if (self._seen(device)) {
+        return;
+    }
+
+    if (!device.location) {
+        return;
+    }
+
+    if (TRACE) {
+        logger.debug({
+            method: "UpnpControlPoint/on(DeviceFound)",
+            udn: udn
+        }, "device found");
+    }
+
+    self.deviced[udn] = "holding";
+
+    self._getDeviceDetails(udn, device.location, function (device) {
+        if (self.deviced[udn] !== "holding") {
+            return;
+        }
+
+        self.deviced[udn] = device;
+        self.emit("device", device);
+    });
+};
 
 /**
  *  Forget all devices older than the given time in ms
@@ -199,9 +194,9 @@ UpnpControlPoint.prototype.scrub = function (ms) {
 
     const now = (new Date()).getTime();
 
-    _.values(self.devices)
+    _.values(self.deviced)
         .filter(device => device)
-        .filter(device => device.usn)
+        .filter(device => _device_uuid(device))
         .filter(device => (now - device.last_seen) > ms)
         .forEach(device => {
             logger.debug({

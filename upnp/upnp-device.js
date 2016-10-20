@@ -111,6 +111,7 @@ UpnpDevice.prototype.forget = function () {
 
     self.forgotten = true
     self.emit("device-lost")
+    console.log("EMIT DEVICE-LOST [BOTTOM]");
         // self.removeAllListeners()
 
     for (var si in self.services) {

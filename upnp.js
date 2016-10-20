@@ -36,36 +36,39 @@ const DELTA_SEARCH = 20 * 1000;
 
 const UpnpControlPoint = require("./upnp/upnp-controlpoint").UpnpControlPoint;
 
-var _cp;
+let _cp;
 const control_point = function () {
-    if (_cp === undefined) {
-        logger.info({
-            method: "cp"
-        }, "made UpnpControlPoint");
-
-        const initd = _.d.compose.shallow({},
-            iotdb.keystore().get("bridges/UPnP/initd"), 
-            {
-                listen_port: 0,
-            }
-        );
-
-        _cp = new UpnpControlPoint(initd);
-
-        // we periodically kick off a new search to find devices that have come online
-        setInterval(function () {
-            _cp.search();
-            _cp.scrub(DELTA_SCRUB);
-        }, DELTA_SEARCH);
+    if (_cp) {
+        return _cp;
     }
+
+    logger.info({
+        method: "cp"
+    }, "made UpnpControlPoint");
+
+    const initd = _.d.compose.shallow({},
+        iotdb.keystore().get("bridges/UPnP/initd"), 
+        {
+            listen_port: 0,
+        }
+    );
+
+    _cp = new UpnpControlPoint(initd);
+
+    // we periodically kick off a new search to find devices that have come online
+    setInterval(function () {
+        _cp.search();
+        _cp.scrub(DELTA_SCRUB);
+    }, DELTA_SEARCH);
 
     return _cp;
 };
 
-const initialized = function () {
-    return _cp !== undefined;
-};
+const initialized = () => _cp !== undefined;
 
+const devices = () => _.values(control_point().devices).filter(device => _.is.Object(device));
+
+/*
 const devices = function () {
     var ds = [];
 
@@ -79,6 +82,7 @@ const devices = function () {
 
     return ds;
 };
+*/
 
 /*
  *  API
