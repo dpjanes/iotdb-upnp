@@ -24,7 +24,54 @@
 
 "use strict";
 
-var upnp = require('./upnp')
-for (var xi in upnp) {
-    exports[xi] = upnp[xi];
-}
+const iotdb = require("iotdb");
+const _ = iotdb._;
+
+const logger = iotdb.logger({
+    name: 'iotdb-upnp',
+    module: 'index',
+});
+
+const DELTA_SCRUB = 60 * 1000;
+const DELTA_SEARCH = 20 * 1000;
+
+const UpnpControlPoint = require("./upnp/upnp-controlpoint").UpnpControlPoint;
+
+let _cp;
+const control_point = function () {
+    if (_cp) {
+        return _cp;
+    }
+
+    logger.info({
+        method: "cp"
+    }, "made UpnpControlPoint");
+
+    const initd = _.d.compose.shallow({},
+        iotdb.keystore().get("bridges/UPnP/initd"), 
+        {
+            listen_port: 0,
+        }
+    );
+
+    _cp = new UpnpControlPoint(initd);
+
+    // we periodically kick off a new search to find devices that have come online
+    setInterval(function () {
+        _cp.search();
+        _cp.scrub(DELTA_SCRUB);
+    }, DELTA_SEARCH);
+
+    return _cp;
+};
+
+const initialized = () => _cp !== undefined;
+
+const devices = () => _.values(control_point().deviced).filter(device => _.is.Object(device));
+
+/*
+ *  API
+ */
+exports.control_point = control_point;
+exports.initialized = initialized;
+exports.devices = devices;

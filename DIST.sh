@@ -31,7 +31,7 @@ echo "=================="
 
     tar cf - \
         README.md LICENSE package.json homestar.json \
-        index.js upnp.js \
+        index.js \
         upnp/upnp*js \
         |
     ( cd "${NPM_DST}" && tar xvf - && npm publish ) || exit 1
